@@ -288,10 +288,11 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mCalendar.setTimeInMillis(now);
 
             String text = mAmbient
-                    ? String.format("%d:%02d", mCalendar.get(Calendar.HOUR),
-                    mCalendar.get(Calendar.MINUTE))
-                    : String.format("%d:%02d:%02d", mCalendar.get(Calendar.HOUR),
-                    mCalendar.get(Calendar.MINUTE), mCalendar.get(Calendar.SECOND));
+                    ? String.format(Locale.getDefault(), "%d:%02d",
+                    mCalendar.get(Calendar.HOUR), mCalendar.get(Calendar.MINUTE))
+                    : String.format(Locale.getDefault(), "%d:%02d:%02d",
+                    mCalendar.get(Calendar.HOUR), mCalendar.get(Calendar.MINUTE),
+                    mCalendar.get(Calendar.SECOND));
             String format = mAmbient ? "EEE MMM dd" : "EEE, MMM dd yyyy";
             SimpleDateFormat dateFormat = new SimpleDateFormat(format, Locale.getDefault());
             String date = dateFormat.format(mCalendar.getTime());
