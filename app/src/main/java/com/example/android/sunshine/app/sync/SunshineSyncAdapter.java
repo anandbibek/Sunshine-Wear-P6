@@ -36,6 +36,11 @@ import com.example.android.sunshine.app.R;
 import com.example.android.sunshine.app.Utility;
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -53,6 +58,7 @@ import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
 public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
+
     public final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
     public static final String ACTION_DATA_UPDATED =
             "com.example.android.sunshine.app.ACTION_DATA_UPDATED";
@@ -63,6 +69,12 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     private static final long DAY_IN_MILLIS = 1000 * 60 * 60 * 24;
     private static final int WEATHER_NOTIFICATION_ID = 3004;
 
+    private static final String WEATHER_INFO_PATH = "/weather-info";
+    private static final String WEATHER_ID = "id";
+    private static final String WEATHER_HIGH = "high";
+    private static final String WEATHER_LOW = "low";
+
+    private GoogleApiClient mGoogleApiClient;
 
     private static final String[] NOTIFY_WEATHER_PROJECTION = new String[] {
             WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
@@ -89,6 +101,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
     public SunshineSyncAdapter(Context context, boolean autoInitialize) {
         super(context, autoInitialize);
+        initGoogleApiClient();
     }
 
     @Override
@@ -202,6 +215,14 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             }
         }
         return;
+    }
+
+    //initialize Wearable Api stuff
+    private void initGoogleApiClient(){
+        if(mGoogleApiClient==null)
+            mGoogleApiClient = new GoogleApiClient.Builder(getContext())
+                    .addApi(Wearable.API)
+                    .build();
     }
 
     /**
@@ -369,6 +390,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 updateWidgets();
                 updateMuzei();
                 notifyWeather();
+                pushToWear();
             }
             Log.d(LOG_TAG, "Sync Complete. " + cVVector.size() + " Inserted");
             setLocationStatus(getContext(), LOCATION_STATUS_OK);
@@ -503,6 +525,37 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 cursor.close();
             }
         }
+    }
+
+    private void pushToWear(){
+        Context context = getContext();
+        String locationQuery = Utility.getPreferredLocation(context);
+        Uri weatherUri = WeatherContract.WeatherEntry.buildWeatherLocationWithDate(locationQuery, System.currentTimeMillis());
+
+        // we'll query our contentProvider, as always
+        Cursor cursor = context.getContentResolver().query(weatherUri, NOTIFY_WEATHER_PROJECTION, null, null, null);
+
+        if (cursor!= null && cursor.moveToFirst()) {
+            int weatherId = cursor.getInt(INDEX_WEATHER_ID);
+            double high = cursor.getDouble(INDEX_MAX_TEMP);
+            double low = cursor.getDouble(INDEX_MIN_TEMP);
+
+            initGoogleApiClient();
+            mGoogleApiClient.connect();
+            PutDataMapRequest request = PutDataMapRequest.create(WEATHER_INFO_PATH);
+            request.getDataMap().putString(WEATHER_HIGH, Utility.formatTemperature(context, high));
+            request.getDataMap().putString(WEATHER_LOW, Utility.formatTemperature(context, low));
+            request.getDataMap().putInt(WEATHER_ID, weatherId);
+
+            Wearable.DataApi.putDataItem(mGoogleApiClient, request.asPutDataRequest())
+                    .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                        @Override
+                        public void onResult(DataApi.DataItemResult dataItemResult) {
+                            Log.d(LOG_TAG, dataItemResult.getStatus().toString());
+                        }
+                    });
+        }
+        cursor.close();
     }
 
     /**
