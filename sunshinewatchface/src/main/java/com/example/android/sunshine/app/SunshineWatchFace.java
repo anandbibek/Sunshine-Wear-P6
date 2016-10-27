@@ -105,6 +105,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         float mYOffset;
         float mYMargin;
         int smallFontSize, normalFontSize;
+        private float mCenterX;
+        private float mCenterY;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -150,6 +152,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             Paint paint = new Paint();
             paint.setColor(textColor);
             paint.setTextSize(textSize);
+            paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(NORMAL_TYPEFACE);
             paint.setAntiAlias(true);
             return paint;
@@ -172,6 +175,20 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             // Whether the timer should be running depends on whether we're visible (as well as
             // whether we're in ambient mode), so we may need to start or stop the timer.
             updateTimer();
+        }
+
+        //
+        @Override
+        public void onSurfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            super.onSurfaceChanged(holder, format, width, height);
+
+            /*
+             * Find the coordinates of the center point on the screen, and ignore the window
+             * insets, so that, on round watches with a "chin", the watch face is centered on the
+             * entire screen, not just the usable portion.
+             */
+            mCenterX = width / 2f;
+            mCenterY = height / 2f;
         }
 
         private void registerReceiver() {
@@ -278,8 +295,11 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             String format = mAmbient ? "EEE MMM dd" : "EEE, MMM dd yyyy";
             SimpleDateFormat dateFormat = new SimpleDateFormat(format, Locale.getDefault());
             String date = dateFormat.format(mCalendar.getTime());
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
-            canvas.drawText(date, mXOffset, mYOffset + mYMargin, mDatePaint);
+
+            //we have center aligned the paint
+            canvas.drawText(text, mCenterX, mYOffset, mTextPaint);
+            canvas.drawText(date, mCenterX, mYOffset + mYMargin, mDatePaint);
+            canvas.drawLine(mCenterX-mXOffset, mCenterY, mCenterX+mXOffset, mCenterY, mDatePaint);
         }
 
         /**
