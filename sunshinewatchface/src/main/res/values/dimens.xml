@@ -4,5 +4,9 @@
     <dimen name="digital_text_size_round">45dp</dimen>
     <dimen name="digital_x_offset">15dp</dimen>
     <dimen name="digital_x_offset_round">25dp</dimen>
-    <dimen name="digital_y_offset">90dp</dimen>
+    <dimen name="digital_y_offset">60dp</dimen>
+    <dimen name="digital_y_margin">20dp</dimen>
+
+    <dimen name="normalFontSize">32sp</dimen>
+    <dimen name="smallFontSize">16sp</dimen>
 </resources>

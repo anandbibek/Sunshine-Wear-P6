@@ -36,7 +36,9 @@ import android.view.WindowInsets;
 import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -89,6 +91,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mTextPaint;
+        Paint mDatePaint;
         boolean mAmbient;
         Calendar mCalendar;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -100,6 +103,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         };
         float mXOffset;
         float mYOffset;
+        float mYMargin;
+        int smallFontSize, normalFontSize;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -119,12 +124,18 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                     .build());
             Resources resources = SunshineWatchFace.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
+            mYMargin = resources.getDimension(R.dimen.digital_y_margin);
+            smallFontSize = resources.getDimensionPixelSize(R.dimen.smallFontSize);
+            normalFontSize = resources.getDimensionPixelSize(R.dimen.normalFontSize);
 
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(resources.getColor(R.color.background));
+            mBackgroundPaint.setColor(resources.getColor(R.color.primary));
 
             mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text),normalFontSize);
+
+            mDatePaint = new Paint();
+            mDatePaint = createTextPaint(resources.getColor(R.color.digital_text_light),smallFontSize);
 
             mCalendar = Calendar.getInstance();
         }
@@ -135,9 +146,10 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             super.onDestroy();
         }
 
-        private Paint createTextPaint(int textColor) {
+        private Paint createTextPaint(int textColor, float textSize) {
             Paint paint = new Paint();
             paint.setColor(textColor);
+            paint.setTextSize(textSize);
             paint.setTypeface(NORMAL_TYPEFACE);
             paint.setAntiAlias(true);
             return paint;
@@ -263,7 +275,11 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                     mCalendar.get(Calendar.MINUTE))
                     : String.format("%d:%02d:%02d", mCalendar.get(Calendar.HOUR),
                     mCalendar.get(Calendar.MINUTE), mCalendar.get(Calendar.SECOND));
+            String format = mAmbient ? "EEE MMM dd" : "EEE, MMM dd yyyy";
+            SimpleDateFormat dateFormat = new SimpleDateFormat(format, Locale.getDefault());
+            String date = dateFormat.format(mCalendar.getTime());
             canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            canvas.drawText(date, mXOffset, mYOffset + mYMargin, mDatePaint);
         }
 
         /**
