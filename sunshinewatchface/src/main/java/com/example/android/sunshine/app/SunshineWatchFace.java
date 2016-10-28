@@ -106,6 +106,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         Paint mBackgroundPaint;
         Paint mTextPaint;
         Paint mDatePaint;
+        Paint lowTempPaint, highTempPaint;
         boolean mAmbient;
         Calendar mCalendar;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -119,8 +120,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         float mYOffset;
         float mYMargin;
         int smallFontSize, normalFontSize;
-        private float mCenterX;
-        private float mCenterY;
+        private float mCenterX, mCanvasWidth;
+        private float mCenterY, mCanvasHeight;
 
         //initialize with blank before data sync
         String highTemp = "",lowTemp = "";
@@ -156,6 +157,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             smallFontSize = resources.getDimensionPixelSize(R.dimen.smallFontSize);
             normalFontSize = resources.getDimensionPixelSize(R.dimen.normalFontSize);
 
+
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.primary));
 
@@ -164,6 +166,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             mDatePaint = new Paint();
             mDatePaint = createTextPaint(resources.getColor(R.color.digital_text_light),smallFontSize);
+
+            highTempPaint = createDataPaint(resources.getColor(R.color.digital_text),smallFontSize);
+            lowTempPaint = createDataPaint(resources.getColor(R.color.digital_text_light),smallFontSize);
 
             mCalendar = Calendar.getInstance();
         }
@@ -179,6 +184,15 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             paint.setColor(textColor);
             paint.setTextSize(textSize);
             paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(NORMAL_TYPEFACE);
+            paint.setAntiAlias(true);
+            return paint;
+        }
+
+        private Paint createDataPaint(int textColor, float textSize) {
+            Paint paint = new Paint();
+            paint.setColor(textColor);
+            paint.setTextSize(textSize);
             paint.setTypeface(NORMAL_TYPEFACE);
             paint.setAntiAlias(true);
             return paint;
@@ -226,6 +240,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
              * insets, so that, on round watches with a "chin", the watch face is centered on the
              * entire screen, not just the usable portion.
              */
+            mCanvasWidth = width;
+            mCanvasHeight = height;
             mCenterX = width / 2f;
             mCenterY = height / 2f;
         }
@@ -341,8 +357,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             canvas.drawText(date, mCenterX, mYOffset + mYMargin, mDatePaint);
             canvas.drawLine(mCenterX-mXOffset, mCenterY, mCenterX+mXOffset, mCenterY, mDatePaint);
 
-            canvas.drawText(highTemp, mCenterX, mCenterY, mTextPaint);
-            canvas.drawText(lowTemp, mCenterX+mXOffset, mCenterY, mDatePaint);
+            float x = highTempPaint.measureText(highTemp);
+            canvas.drawText(highTemp, mCenterX-x, mCanvasHeight-mYOffset, highTempPaint);
+            canvas.drawText(lowTemp, mCenterX, mCanvasHeight-mYOffset, lowTempPaint);
         }
 
         /**
