@@ -29,11 +29,23 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 import android.widget.Toast;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
@@ -47,6 +59,7 @@ import java.util.concurrent.TimeUnit;
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
 public class SunshineWatchFace extends CanvasWatchFaceService {
+    final String TAG = SunshineWatchFace.class.getSimpleName();
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
@@ -86,7 +99,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
+            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
@@ -108,11 +122,23 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         private float mCenterX;
         private float mCenterY;
 
+        //initialize with blank before data sync
+        String highTemp = "",lowTemp = "";
+        int weatherIcon = -1;
+
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
          * disable anti-aliasing in ambient mode.
          */
         boolean mLowBitAmbient;
+
+
+        //Start up play services to receive weather data
+        GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(SunshineWatchFace.this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(Wearable.API)
+                .build();
 
         @Override
         public void onCreate(SurfaceHolder holder) {
@@ -162,7 +188,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         public void onVisibilityChanged(boolean visible) {
             super.onVisibilityChanged(visible);
 
+            Log.d(TAG, "visibility changed to : " + visible);
+
             if (visible) {
+                //connect to play services
+                mGoogleApiClient.connect();
+                Log.d(TAG, "connection requested on visible ");
+
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
@@ -170,6 +202,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 invalidate();
             } else {
                 unregisterReceiver();
+
+                //disconnect from play services
+                if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+                    Wearable.DataApi.removeListener(mGoogleApiClient, this);
+                    mGoogleApiClient.disconnect();
+                    Log.d(TAG, "disconnection requested on invisible ");
+                }
             }
 
             // Whether the timer should be running depends on whether we're visible (as well as
@@ -301,6 +340,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             canvas.drawText(text, mCenterX, mYOffset, mTextPaint);
             canvas.drawText(date, mCenterX, mYOffset + mYMargin, mDatePaint);
             canvas.drawLine(mCenterX-mXOffset, mCenterY, mCenterX+mXOffset, mCenterY, mDatePaint);
+
+            canvas.drawText(highTemp, mCenterX, mCenterY, mTextPaint);
+            canvas.drawText(lowTemp, mCenterX+mXOffset, mCenterY, mDatePaint);
         }
 
         /**
@@ -332,6 +374,44 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 long delayMs = INTERACTIVE_UPDATE_RATE_MS
                         - (timeMs % INTERACTIVE_UPDATE_RATE_MS);
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
+            }
+        }
+
+        // GoogleApiClient.ConnectionCallbacks
+        @Override
+        public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+            Log.d(TAG, "onConnectionFailed: " + connectionResult);
+        }
+
+        // GoogleApiClient.ConnectionCallbacks
+        @Override
+        public void onConnected(@Nullable Bundle bundle) {
+            Log.d(TAG, "onConnected: " + bundle);
+            Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
+        }
+
+        // GoogleApiClient.ConnectionCallbacks
+        @Override
+        public void onConnectionSuspended(int i) {
+            Log.d(TAG, "onConnectionSuspended: " + i);
+        }
+
+        @Override
+        public void onDataChanged(DataEventBuffer dataEventBuffer) {
+            Log.d(TAG, "Data changed events: ");
+            for (DataEvent dataEvent : dataEventBuffer){
+                if(dataEvent.getType()==DataEvent.TYPE_CHANGED){
+                    String path = dataEvent.getDataItem().getUri().getPath();
+                    if(path.equals(Utility.WEATHER_INFO_PATH)){
+                        DataMap dataMap = DataMapItem.fromDataItem(dataEvent.getDataItem()).getDataMap();
+                        highTemp = dataMap.getString(Utility.WEATHER_HIGH);
+                        lowTemp = dataMap.getString(Utility.WEATHER_LOW);
+                        weatherIcon = Utility.getIconResourceForWeatherCondition(
+                                dataMap.getInt(Utility.WEATHER_ID));
+
+                        Log.d(TAG, "Found: " + " " + highTemp + " " + lowTemp);
+                    }
+                }
             }
         }
     }
