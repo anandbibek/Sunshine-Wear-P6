@@ -2,6 +2,7 @@ package com.example.android.sunshine.app;
 
 public class Utility {
     static final String WEATHER_INFO_PATH = "/weather-info";
+    static final String WEATHER_REQUEST = "/weather-req";
     static final String WEATHER_ID = "id";
     static final String WEATHER_HIGH = "high";
     static final String WEATHER_LOW = "low";

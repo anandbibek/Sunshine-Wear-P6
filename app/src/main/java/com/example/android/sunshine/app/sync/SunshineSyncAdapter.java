@@ -69,7 +69,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     private static final long DAY_IN_MILLIS = 1000 * 60 * 60 * 24;
     private static final int WEATHER_NOTIFICATION_ID = 3004;
 
-    private static final String WEATHER_INFO_PATH = "/weather-info";
+    public static final String WEATHER_INFO_PATH = "/weather-info";
     private static final String WEATHER_ID = "id";
     private static final String WEATHER_HIGH = "high";
     private static final String WEATHER_LOW = "low";
@@ -546,6 +546,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             request.getDataMap().putString(WEATHER_HIGH, Utility.formatTemperature(context, high));
             request.getDataMap().putString(WEATHER_LOW, Utility.formatTemperature(context, low));
             request.getDataMap().putInt(WEATHER_ID, weatherId);
+            request.getDataMap().putLong("UID",System.currentTimeMillis());
 
             Wearable.DataApi.putDataItem(mGoogleApiClient, request.asPutDataRequest())
                     .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
@@ -554,8 +555,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                             Log.d(LOG_TAG, dataItemResult.getStatus().toString());
                         }
                     });
+
+            cursor.close();
         }
-        cursor.close();
     }
 
     /**

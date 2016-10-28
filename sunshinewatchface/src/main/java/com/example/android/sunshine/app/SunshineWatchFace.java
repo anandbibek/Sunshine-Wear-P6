@@ -21,11 +21,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -40,11 +43,14 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
@@ -124,8 +130,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         private float mCenterY, mCanvasHeight;
 
         //initialize with blank before data sync
-        String highTemp = "",lowTemp = "";
-        int weatherIcon = -1;
+        String highTemp = " ",lowTemp = " ";
+        Bitmap weatherIcon;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -297,6 +303,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
                     mTextPaint.setAntiAlias(!inAmbientMode);
+                    mDatePaint.setAntiAlias(!inAmbientMode);
+                    highTempPaint.setAntiAlias(!inAmbientMode);
+                    lowTempPaint.setAntiAlias(!inAmbientMode);
                 }
                 invalidate();
             }
@@ -357,9 +366,21 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             canvas.drawText(date, mCenterX, mYOffset + mYMargin, mDatePaint);
             canvas.drawLine(mCenterX-mXOffset, mCenterY, mCenterX+mXOffset, mCenterY, mDatePaint);
 
-            float x = highTempPaint.measureText(highTemp);
-            canvas.drawText(highTemp, mCenterX-x, mCanvasHeight-mYOffset, highTempPaint);
-            canvas.drawText(lowTemp, mCenterX, mCanvasHeight-mYOffset, lowTempPaint);
+            float x = mCenterX;
+
+            if(!mAmbient && weatherIcon != null){
+                int width = weatherIcon.getWidth();
+                x -= width;
+                canvas.drawBitmap(weatherIcon, x, mYOffset+weatherIcon.getHeight(), null);
+                x+= width;
+            }
+            else
+                x -= highTempPaint.measureText(highTemp);
+
+            canvas.drawText(highTemp, x, mCanvasHeight-mYOffset, highTempPaint);
+            x += highTempPaint.measureText(highTemp);
+            canvas.drawText(lowTemp, x, mCanvasHeight-mYOffset, lowTempPaint);
+
         }
 
         /**
@@ -394,6 +415,20 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             }
         }
 
+        private void requestData(){
+            PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(Utility.WEATHER_REQUEST);
+            putDataMapRequest.getDataMap().putLong("uid", System.currentTimeMillis());
+            PutDataRequest request = putDataMapRequest.asPutDataRequest();
+
+            Wearable.DataApi.putDataItem(mGoogleApiClient, request)
+                    .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                        @Override
+                        public void onResult(DataApi.DataItemResult dataItemResult) {
+                            Log.d(TAG, "Request for weather data " + dataItemResult.getStatus());
+                        }
+                    });
+        }
+
         // GoogleApiClient.ConnectionCallbacks
         @Override
         public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
@@ -405,6 +440,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         public void onConnected(@Nullable Bundle bundle) {
             Log.d(TAG, "onConnected: " + bundle);
             Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
+            requestData();
         }
 
         // GoogleApiClient.ConnectionCallbacks
@@ -423,8 +459,10 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                         DataMap dataMap = DataMapItem.fromDataItem(dataEvent.getDataItem()).getDataMap();
                         highTemp = dataMap.getString(Utility.WEATHER_HIGH);
                         lowTemp = dataMap.getString(Utility.WEATHER_LOW);
-                        weatherIcon = Utility.getIconResourceForWeatherCondition(
-                                dataMap.getInt(Utility.WEATHER_ID));
+                        int weather = dataMap.getInt(Utility.WEATHER_ID);
+                        Drawable b = getResources().getDrawable(
+                                Utility.getIconResourceForWeatherCondition(weather));
+                        weatherIcon = ((BitmapDrawable) b).getBitmap();
 
                         Log.d(TAG, "Found: " + " " + highTemp + " " + lowTemp);
                     }
